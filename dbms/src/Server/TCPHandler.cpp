@@ -7,6 +7,7 @@
 #include <Common/Stopwatch.h>
 
 #include <Core/Progress.h>
+#include <Core/Status.h>
 
 #include <IO/CompressedReadBuffer.h>
 #include <IO/CompressedWriteBuffer.h>
@@ -22,6 +23,7 @@
 #include <Interpreters/Quota.h>
 
 #include <Storages/StorageMemory.h>
+#include <Storages/StorageReplicatedMergeTree.h>
 
 #include <Common/ExternalTable.h>
 
@@ -363,6 +365,38 @@ void TCPHandler::processOrdinaryQuery()
 }
 
 
+void TCPHandler::processStatusRequest()
+{
+    Protocol::Status::Request request;
+    request.read(*in, client_revision);
+
+    Protocol::Status::Response response;
+    for (const std::string & table_id: request.tables)
+    {
+        std::cerr << "TABLE STATUS REQUEST " << table_id << std::endl;
+
+        Protocol::Status::Response::TableStatus status;
+        StoragePtr table = connection_context.getTable("", table_id);
+        if (auto * replicated_table = dynamic_cast<StorageReplicatedMergeTree *>(table.get()))
+        {
+            status.is_replicated = true;
+            time_t abs_delay;
+            time_t rel_delay;
+            replicated_table->getReplicaDelays(abs_delay, rel_delay);
+            status.absolute_delay = abs_delay;
+            status.relative_delay = rel_delay;
+        }
+        else
+            status.is_replicated = false;
+
+        response.table_states_by_id.emplace(std::move(table_id), std::move(status));
+    }
+
+    writeVarUInt(Protocol::Server::StatusResponse, *out);
+    response.write(*out, client_revision);
+}
+
+
 void TCPHandler::sendProfileInfo()
 {
     if (const IProfilingBlockInputStream * input = dynamic_cast<const IProfilingBlockInputStream *>(&*state.io.in))
@@ -510,6 +544,13 @@ bool TCPHandler::receivePacket()
         case Protocol::Client::Hello:
             throw Exception("Unexpected packet " + String(Protocol::Client::toString(packet_type)) + " received from client",
                 ErrorCodes::UNEXPECTED_PACKET_FROM_CLIENT);
+
+        case Protocol::Client::StatusRequest:
+            if (!state.empty())
+                throw NetException("Unexpected packet StatusRequest received from client", ErrorCodes::UNEXPECTED_PACKET_FROM_CLIENT);
+            processStatusRequest();
+            out->next();
+            return false;
 
         default:
             throw Exception("Unknown packet from client", ErrorCodes::UNKNOWN_PACKET_FROM_CLIENT);

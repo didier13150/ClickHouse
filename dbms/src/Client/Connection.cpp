@@ -142,9 +142,7 @@ void Connection::receiveHello()
     {
         /// Close connection, to not stay in unsynchronised state.
         disconnect();
-
-        throw NetException("Unexpected packet from server " + getDescription() + " (expected Hello or Exception, got "
-            + String(Protocol::Server::toString(packet_type)) + ")", ErrorCodes::UNEXPECTED_PACKET_FROM_SERVER);
+        throwUnexpectedPacket(packet_type, "Hello or Exception");
     }
 }
 
@@ -259,11 +257,7 @@ bool Connection::ping()
         }
 
         if (pong != Protocol::Server::Pong)
-        {
-            throw Exception("Unexpected packet from server " + getDescription() + " (expected Pong, got "
-                + String(Protocol::Server::toString(pong)) + ")",
-                ErrorCodes::UNEXPECTED_PACKET_FROM_SERVER);
-        }
+            throwUnexpectedPacket(pong, "Pong");
     }
     catch (const Poco::Exception & e)
     {
@@ -272,6 +266,28 @@ bool Connection::ping()
     }
 
     return true;
+}
+
+Protocol::Status::Response Connection::getServerStatus(const Protocol::Status::Request & request)
+{
+    if (!connected)
+        connect();
+
+    writeVarUInt(Protocol::Client::StatusRequest, *out);
+    request.write(*out, server_revision);
+    out->next();
+
+    UInt64 response_type = 0;
+    readVarUInt(response_type, *in);
+
+    if (response_type == Protocol::Server::Exception)
+        receiveException()->rethrow();
+    else if (response_type != Protocol::Server::StatusResponse)
+        throwUnexpectedPacket(response_type, "StatusResponse");
+
+    Protocol::Status::Response response;
+    response.read(*in, server_revision);
+    return response;
 }
 
 
@@ -286,6 +302,14 @@ void Connection::sendQuery(
     network_compression_method = settings ? settings->network_compression_method.value : CompressionMethod::LZ4;
 
     forceConnected();
+
+    Protocol::Status::Request status_request;
+    status_request.tables = { "test" };
+    auto status_response = getServerStatus(status_request);
+    for (const auto & kv: status_response.table_states_by_id)
+    {
+        std::cerr << "OLOLO TABLE STATUS: " << kv.first << " " << kv.second.is_replicated << " " << kv.second.absolute_delay << " " << kv.second.relative_delay << std::endl;
+    }
 
     query_id = query_id_;
 
@@ -607,6 +631,14 @@ void Connection::fillBlockExtraInfo(BlockExtraInfo & info) const
     info.resolved_address = resolved_address.toString();
     info.port = port;
     info.user = user;
+}
+
+void Connection::throwUnexpectedPacket(UInt64 packet_type, const char * expected) const
+{
+    throw NetException(
+            "Unexpected packet from server " + getDescription() + " (expected " + expected
+            + ", got " + String(Protocol::Server::toString(packet_type)) + ")",
+            ErrorCodes::UNEXPECTED_PACKET_FROM_SERVER);
 }
 
 }

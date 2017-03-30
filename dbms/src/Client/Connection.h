@@ -10,6 +10,7 @@
 #include <Core/Defines.h>
 #include <Core/Progress.h>
 #include <Core/Protocol.h>
+#include <Core/Status.h>
 #include <Core/QueryProcessingStage.h>
 
 #include <DataStreams/IBlockInputStream.h>
@@ -169,6 +170,8 @@ public:
     /// If not connected yet, or if connection is broken - then connect. If cannot connect - throw an exception.
     void forceConnected();
 
+    Protocol::Status::Response getServerStatus(const Protocol::Status::Request & request);
+
     /** Disconnect.
       * This may be used, if connection is left in unsynchronised state
       *  (when someone continues to wait for something) after an exception.
@@ -271,6 +274,8 @@ private:
     BlockStreamProfileInfo receiveProfileInfo();
 
     void initBlockInput();
+
+    void throwUnexpectedPacket(UInt64 packet_type, const char * expected) const;
 };
 
 }
