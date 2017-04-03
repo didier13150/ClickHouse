@@ -371,12 +371,12 @@ void TCPHandler::processStatusRequest()
     request.read(*in, client_revision);
 
     Protocol::Status::Response response;
-    for (const std::string & table_id: request.tables)
+    for (const QualifiedTableName & table_name: request.tables)
     {
-        std::cerr << "TABLE STATUS REQUEST " << table_id << std::endl;
+        std::cerr << "TABLE STATUS REQUEST " << table_name.database << "." << table_name.table << std::endl;
 
         Protocol::Status::Response::TableStatus status;
-        StoragePtr table = connection_context.getTable("", table_id);
+        StoragePtr table = connection_context.getTable(table_name.database, table_name.table);
         if (auto * replicated_table = dynamic_cast<StorageReplicatedMergeTree *>(table.get()))
         {
             status.is_replicated = true;
@@ -389,7 +389,7 @@ void TCPHandler::processStatusRequest()
         else
             status.is_replicated = false;
 
-        response.table_states_by_id.emplace(std::move(table_id), std::move(status));
+        response.table_states_by_id.emplace(table_name, std::move(status));
     }
 
     writeVarUInt(Protocol::Server::StatusResponse, *out);

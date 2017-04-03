@@ -12,8 +12,11 @@ namespace Protocol
 void Status::Request::write(WriteBuffer & out, UInt64 server_protocol_revision) const
 {
     writeVarUInt(tables.size(), out);
-    for (const auto & table : tables)
-        writeBinary(table, out);
+    for (const auto & table_name : tables)
+    {
+        writeBinary(table_name.database, out);
+        writeBinary(table_name.table, out);
+    }
 }
 
 void Status::Request::read(ReadBuffer & in, UInt64 client_protocol_revision)
@@ -26,9 +29,10 @@ void Status::Request::read(ReadBuffer & in, UInt64 client_protocol_revision)
 
     for (size_t i = 0; i < size; ++i)
     {
-        std::string table;
-        readBinary(table, in);
-        tables.emplace(std::move(table));
+        QualifiedTableName table_name;
+        readBinary(table_name.database, in);
+        readBinary(table_name.table, in);
+        tables.emplace(std::move(table_name));
     }
 }
 
@@ -59,9 +63,11 @@ void Status::Response::write(WriteBuffer & out, UInt64 client_protocol_revision)
     writeVarUInt(table_states_by_id.size(), out);
     for (const auto & kv: table_states_by_id)
     {
-        const std::string & id = kv.first;
+        const QualifiedTableName & table_name = kv.first;
+        writeBinary(table_name.database, out);
+        writeBinary(table_name.table, out);
+
         const TableStatus & status = kv.second;
-        writeBinary(id, out);
         status.write(out, client_protocol_revision);
     }
 }
@@ -76,11 +82,13 @@ void Status::Response::read(ReadBuffer & in, UInt64 server_protocol_revision)
 
     for (size_t i = 0; i < size; ++i)
     {
-        std::string table;
-        readBinary(table, in);
+        QualifiedTableName table_name;
+        readBinary(table_name.database, in);
+        readBinary(table_name.table, in);
+
         TableStatus status;
         status.read(in, server_protocol_revision);
-        table_states_by_id.emplace(std::move(table), std::move(status));
+        table_states_by_id.emplace(std::move(table_name), std::move(status));
     }
 }
 

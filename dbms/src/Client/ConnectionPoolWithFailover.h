@@ -67,6 +67,16 @@ protected:
         try
         {
             out_entry = pool->get(settings);
+
+            /// XXX
+            Protocol::Status::Request status_request;
+            status_request.tables = { {"repl", "test"} };
+            auto status_response = out_entry->getServerStatus(status_request);
+            for (const auto & kv: status_response.table_states_by_id)
+            {
+                std::cerr << "OLOLO TABLE STATUS: " << kv.first.database << "." << kv.first.table << " " << kv.second.is_replicated << " " << kv.second.absolute_delay << " " << kv.second.relative_delay << std::endl;
+            }
+
             out_entry->forceConnected();
             return true;
         }

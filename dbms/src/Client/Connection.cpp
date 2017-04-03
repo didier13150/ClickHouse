@@ -304,17 +304,6 @@ void Connection::sendQuery(
 {
     network_compression_method = settings ? settings->network_compression_method.value : CompressionMethod::LZ4;
 
-    // {
-    //  /// XXX
-    //  Protocol::Status::Request status_request;
-    //  status_request.tables = { "test" };
-    //  auto status_response = getServerStatus(status_request);
-    //  for (const auto & kv: status_response.table_states_by_id)
-    //  {
-    //      std::cerr << "OLOLO TABLE STATUS: " << kv.first << " " << kv.second.is_replicated << " " << kv.second.absolute_delay << " " << kv.second.relative_delay << std::endl;
-    //  }
-    // }
-
     query_id = query_id_;
 
     //LOG_TRACE(log_wrapper.get(), "Sending query");
