@@ -231,7 +231,9 @@ struct PingTimeoutSetter
 
 bool Connection::ping()
 {
-    // LOG_TRACE(log_wrapper.get(), "Ping");
+    StackTrace st;
+    LOG_TRACE(log_wrapper.get(), "Ping " // << st.toString()
+             );
 
     PingTimeoutSetter timeout_setter(socket, ping_timeout);
     try
@@ -265,6 +267,7 @@ bool Connection::ping()
         return false;
     }
 
+    LOG_TRACE(log_wrapper.get(), "Pong");
     return true;
 }
 
@@ -301,15 +304,16 @@ void Connection::sendQuery(
 {
     network_compression_method = settings ? settings->network_compression_method.value : CompressionMethod::LZ4;
 
-    forceConnected();
-
-    Protocol::Status::Request status_request;
-    status_request.tables = { "test" };
-    auto status_response = getServerStatus(status_request);
-    for (const auto & kv: status_response.table_states_by_id)
-    {
-        std::cerr << "OLOLO TABLE STATUS: " << kv.first << " " << kv.second.is_replicated << " " << kv.second.absolute_delay << " " << kv.second.relative_delay << std::endl;
-    }
+    // {
+    //  /// XXX
+    //  Protocol::Status::Request status_request;
+    //  status_request.tables = { "test" };
+    //  auto status_response = getServerStatus(status_request);
+    //  for (const auto & kv: status_response.table_states_by_id)
+    //  {
+    //      std::cerr << "OLOLO TABLE STATUS: " << kv.first << " " << kv.second.is_replicated << " " << kv.second.absolute_delay << " " << kv.second.relative_delay << std::endl;
+    //  }
+    // }
 
     query_id = query_id_;
 
