@@ -282,7 +282,15 @@ protected:
     size_t max_tries;
     Logger * log;
 
-    virtual bool tryGet(NestedPoolPtr pool, const DB::Settings * settings, Entry & out_entry, std::stringstream & fail_message) = 0;
+    struct GetResult
+    {
+        Entry entry;
+        bool is_good;
+        double badness; /// Makes sense if entry is null and connection_failure is false.
+                        /// Helps choosing the "least bad" option when all entries are all not suitable.
+    };
+
+    virtual GetResult tryGet(const NestedPoolPtr & pool, const DB::Settings * settings, std::stringstream & fail_message) = 0;
 
 
 private:
@@ -321,27 +329,52 @@ private:
 
         for (size_t try_no = 0; try_no < max_tries; ++try_no)
         {
+            Entry least_bad_entry;
+            size_t least_bad_pool_idx;
+            double least_badness = 0.0;
+
             for (size_t i = 0; i < pools_size; ++i)
             {
                 std::stringstream fail_message;
-
-                if (tryGet(pool_ptrs[i].pool->pool, settings, entry, fail_message))
+                GetResult get_result = tryGet(pool_ptrs[i].pool->pool, settings, fail_message);
+                if (!get_result.entry.isNull())
                 {
-                    if (resource_tracker)
-                        resource_tracker->markAsAllocated(pool_ptrs[i].index);
-                    return true;
+                    if (get_result.is_good)
+                    {
+                        entry = get_result.entry;
+                        if (resource_tracker)
+                            resource_tracker->markAsAllocated(pool_ptrs[i].index);
+                        return true;
+                    }
+                    else if (least_bad_entry.isNull() || get_result.badness < least_badness)
+                    {
+                        least_bad_entry = get_result.entry;
+                        least_bad_pool_idx = i;
+                        least_badness = get_result.badness;
+                    }
                 }
+                else
+                {
+                    ProfileEvents::increment(ProfileEvents::DistributedConnectionFailTry);
 
-                ProfileEvents::increment(ProfileEvents::DistributedConnectionFailTry);
+                    LOG_WARNING(log, "Connection failed at try №"
+                                << (try_no + 1) << ", reason: " << fail_message.str());
 
-                LOG_WARNING(log, "Connection failed at try №"
-                    << (try_no + 1) << ", reason: " << fail_message.str());
+                    fail_messages << fail_message.str() << std::endl;
 
-                fail_messages << fail_message.str() << std::endl;
+                    ++pool_ptrs[i].pool->state.error_count;
+                }
+            }
 
-                ++pool_ptrs[i].pool->state.error_count;
+            if (!least_bad_entry.isNull()) /// TODO: setting to fail anyway if no entry is suitable
+            {
+                if (resource_tracker)
+                    resource_tracker->markAsAllocated(least_bad_pool_idx);
+                entry = least_bad_entry;
+                return true;
             }
         }
+
 
         ProfileEvents::increment(ProfileEvents::DistributedConnectionFailAtAll);
         return false;

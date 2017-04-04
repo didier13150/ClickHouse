@@ -62,23 +62,44 @@ public:
     }
 
 protected:
-    bool tryGet(ConnectionPoolPtr pool, const Settings * settings, Entry & out_entry, std::stringstream & fail_message) override
+    GetResult tryGet(const ConnectionPoolPtr & pool, const Settings * settings, std::stringstream & fail_message) override
     {
+        GetResult result;
         try
         {
-            out_entry = pool->get(settings);
+            result.entry = pool->get(settings);
 
-            /// XXX
+            /// We take only the lag of the main table behind the Distributed table into account.
+            /// TODO: calculate lag for joined tables also.
             Protocol::Status::Request status_request;
             status_request.tables = { {"repl", "test"} };
-            auto status_response = out_entry->getServerStatus(status_request);
+
+            auto status_response = result.entry->getServerStatus(status_request);
+            if (status_response.table_states_by_id.empty())
+                throw Exception(
+                        "Bad TablesStatus response (from " + result.entry->getDescription() + ")",
+                        ErrorCodes::LOGICAL_ERROR);
+
+            UInt32 max_lag = 0;
             for (const auto & kv: status_response.table_states_by_id)
             {
-                std::cerr << "OLOLO TABLE STATUS: " << kv.first.database << "." << kv.first.table << " " << kv.second.is_replicated << " " << kv.second.absolute_delay << " " << kv.second.relative_delay << std::endl;
+                Protocol::Status::Response::TableStatus status = kv.second;
+
+                std::cerr << "REPLICA " << result.entry->getDescription() << " TABLE STATUS: " << kv.first.database << "." << kv.first.table << " " << status.is_replicated << " " << status.absolute_delay << " " << status.relative_delay << std::endl;
+
+                if (status.is_replicated)
+                    max_lag = std::max(max_lag, status.absolute_delay);
             }
 
-            out_entry->forceConnected();
-            return true;
+            if (max_lag < 1) // TODO: take from Settings
+                result.is_good = true;
+            else
+            {
+                std::cerr << "Replica " << result.entry->getDescription() << " has unacceptable lag: " << max_lag << std::endl;
+                /// TODO: ProfileEvents
+                result.is_good = false;
+                result.badness = max_lag;
+            }
         }
         catch (const Exception & e)
         {
@@ -86,8 +107,9 @@ protected:
                 throw;
 
             fail_message << "Code: " << e.code() << ", e.displayText() = " << e.displayText() << ", e.what() = " << e.what();
-            return false;
+            result.entry = Entry();
         }
+        return result;
     }
 
 private:
