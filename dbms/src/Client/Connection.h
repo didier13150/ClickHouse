@@ -47,7 +47,6 @@ using Connections = std::vector<ConnectionPtr>;
   */
 class Connection : private boost::noncopyable
 {
-    friend class ParallelReplicas;
     friend class MultiplexedConnections;
 
 public:
