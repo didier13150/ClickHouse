@@ -25,15 +25,6 @@ RemoteBlockInputStream::RemoteBlockInputStream(Connection & connection_, const S
     init(settings_);
 }
 
-RemoteBlockInputStream::RemoteBlockInputStream(ConnectionPool::Entry & pool_entry_, const String & query_,
-    const Settings * settings_, ThrottlerPtr throttler_, const Tables & external_tables_,
-    QueryProcessingStage::Enum stage_,    const Context & context_)
-    : pool_entry(pool_entry_), connection(&*pool_entry_), query(query_), throttler(throttler_),
-        external_tables(external_tables_), stage(stage_), context(context_)
-{
-    init(settings_);
-}
-
 RemoteBlockInputStream::RemoteBlockInputStream(ConnectionPoolPtr & pool_, const String & query_,
     const Settings * settings_, ThrottlerPtr throttler_, const Tables & external_tables_,
     QueryProcessingStage::Enum stage_, const Context & context_)

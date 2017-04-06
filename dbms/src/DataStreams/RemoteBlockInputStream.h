@@ -24,12 +24,6 @@ public:
         QueryProcessingStage::Enum stage_ = QueryProcessingStage::Complete,
         const Context & context_ = getDefaultContext());
 
-    /// Takes already set connection. Takes the ownership of a connection from a pool
-    RemoteBlockInputStream(ConnectionPool::Entry & pool_entry_, const String & query_, const Settings * settings_,
-        ThrottlerPtr throttler_ = nullptr, const Tables & external_tables_ = Tables(),
-        QueryProcessingStage::Enum stage_ = QueryProcessingStage::Complete,
-        const Context & context_ = getDefaultContext());
-
     /// Takes a pool and gets one or several connections from it
     RemoteBlockInputStream(ConnectionPoolPtr & pool_, const String & query_, const Settings * settings_,
         ThrottlerPtr throttler_ = nullptr, const Tables & external_tables_ = Tables(),
@@ -108,7 +102,6 @@ private:
 
 private:
     /// Already set connection
-    ConnectionPool::Entry pool_entry;
     Connection * connection = nullptr;
 
     /// One shard's connections pool
