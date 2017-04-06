@@ -1,5 +1,7 @@
 #pragma once
 
+#include <experimental/optional>
+
 #include <common/logger_useful.h>
 
 #include <DataStreams/IProfilingBlockInputStream.h>
@@ -39,7 +41,9 @@ public:
     ~RemoteBlockInputStream() override;
 
     /// Specify how we allocate connections on a shard.
-    void setPoolMode(PoolMode pool_mode_);
+    void setPoolMode(PoolMode pool_mode_) { pool_mode = pool_mode_; }
+
+    void setMainTable(QualifiedTableName main_table_) { main_table = std::move(main_table_); }
 
     /// Besides blocks themself, get blocks' extra info
     void appendExtraInfo();
@@ -159,6 +163,7 @@ private:
 
     bool append_extra_info = false;
     PoolMode pool_mode = PoolMode::GET_MANY;
+    std::experimental::optional<QualifiedTableName> main_table;
 
     Logger * log = &Logger::get("RemoteBlockInputStream");
 };

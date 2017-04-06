@@ -109,7 +109,12 @@ public:
 
         bool skip_unavailable = settings ? UInt64(settings->skip_unavailable_shards) : false;
 
-        if (getResource(entry, fail_messages, nullptr, settings))
+        auto try_getter = [this](const NestedPoolPtr & pool, const DB::Settings * settings, std::stringstream & fail_message)
+        {
+            return tryGet(pool, settings, fail_message);
+        };
+
+        if (getResource(entry, fail_messages, nullptr, settings, try_getter))
             return entry;
         else if (!skip_unavailable)
             throw DB::NetException("All connection tries failed. Log: \n\n" + fail_messages.str() + "\n", DB::ErrorCodes::ALL_CONNECTION_TRIES_FAILED);
@@ -135,6 +140,29 @@ public:
       */
     std::vector<Entry> getMany(const DB::Settings * settings, PoolMode pool_mode)
     {
+        auto try_getter = [this](const NestedPoolPtr & pool, const DB::Settings * settings, std::stringstream & fail_message)
+        {
+            return tryGet(pool, settings, fail_message);
+        };
+        return getMany(settings, pool_mode, try_getter);
+    }
+
+protected:
+    struct GetResult
+    {
+        Entry entry;
+        bool is_good;
+        double badness; /// Makes sense if entry is null and connection_failure is false.
+                        /// Helps choosing the "least bad" option when all entries are all not suitable.
+    };
+
+    virtual GetResult tryGet(const NestedPoolPtr & pool, const DB::Settings * settings, std::stringstream & fail_message) = 0;
+
+    using TryGetter =
+        std::function<GetResult(const NestedPoolPtr &, const DB::Settings * settings, std::stringstream &)>;
+
+    std::vector<Entry> getMany(const DB::Settings * settings, PoolMode pool_mode, const TryGetter & try_getter)
+    {
         ResourceTracker resource_tracker{nested_pools.size()};
 
         UInt64 max_connections;
@@ -157,7 +185,7 @@ public:
             Entry entry;
             std::stringstream fail_messages;
 
-            if (getResource(entry, fail_messages, &resource_tracker, settings))
+            if (getResource(entry, fail_messages, &resource_tracker, settings, try_getter))
                 connections.push_back(entry);
             else if ((pool_mode == PoolMode::GET_ALL) || ((i == 0) && !skip_unavailable))
                 throw DB::NetException("All connection tries failed. Log: \n\n" + fail_messages.str() + "\n", DB::ErrorCodes::ALL_CONNECTION_TRIES_FAILED);
@@ -168,7 +196,6 @@ public:
         return connections;
     }
 
-protected:
     struct PoolWithErrorCount
     {
     public:
@@ -282,20 +309,14 @@ protected:
     size_t max_tries;
     Logger * log;
 
-    struct GetResult
-    {
-        Entry entry;
-        bool is_good;
-        double badness; /// Makes sense if entry is null and connection_failure is false.
-                        /// Helps choosing the "least bad" option when all entries are all not suitable.
-    };
-
-    virtual GetResult tryGet(const NestedPoolPtr & pool, const DB::Settings * settings, std::stringstream & fail_message) = 0;
-
-
 private:
     /** Выделяет соединение из одной реплики для работы. */
-    bool getResource(Entry & entry, std::stringstream & fail_messages, ResourceTracker * resource_tracker, const DB::Settings * settings)
+    bool getResource(
+            Entry & entry,
+            std::stringstream & fail_messages,
+            ResourceTracker * resource_tracker,
+            const DB::Settings * settings,
+            const TryGetter & try_getter)
     {
         /// Обновление случайных чисел, а также счётчиков ошибок.
         States states = nested_pools.update();
@@ -336,7 +357,7 @@ private:
             for (size_t i = 0; i < pools_size; ++i)
             {
                 std::stringstream fail_message;
-                GetResult get_result = tryGet(pool_ptrs[i].pool->pool, settings, fail_message);
+                GetResult get_result = try_getter(pool_ptrs[i].pool->pool, settings, fail_message);
                 if (!get_result.entry.isNull())
                 {
                     if (get_result.is_good)

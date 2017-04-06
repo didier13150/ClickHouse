@@ -33,15 +33,13 @@ public:
             size_t max_tries_ = DBMS_CONNECTION_POOL_WITH_FAILOVER_DEFAULT_MAX_TRIES,
             time_t decrease_error_period_ = DBMS_CONNECTION_POOL_WITH_FAILOVER_DEFAULT_DECREASE_ERROR_PERIOD);
 
-private:
     using Entry = IConnectionPool::Entry;
+
+    std::vector<Entry> getManyChecked(
+            const Settings & settings, PoolMode pool_mode, const QualifiedTableName & table_to_check);
+
+private:
     using Base = PoolWithFailoverBase<IConnectionPool>;
-
-    GetResult tryGet(
-            const ConnectionPoolPtr & pool,
-            const Settings * settings,
-            std::stringstream & fail_message) override; /// From PoolWithFailoverBase
-
 
     /** Allocates connection to work. */
     Entry doGet(const Settings * settings) override /// From IConnectionPool
@@ -60,6 +58,12 @@ private:
     }
 
     void applyLoadBalancing(const Settings * settings);
+
+
+    GetResult tryGet(
+            const ConnectionPoolPtr & pool,
+            const Settings * settings,
+            std::stringstream & fail_message) override; /// From PoolWithFailoverBase
 
 private:
     std::vector<size_t> hostname_differences; /// Distances from name of this host to the names of hosts of pools.

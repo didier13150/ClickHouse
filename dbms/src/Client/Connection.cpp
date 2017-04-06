@@ -302,6 +302,9 @@ void Connection::sendQuery(
     const ClientInfo * client_info,
     bool with_pending_data)
 {
+    if (!connected)
+        connect();
+
     network_compression_method = settings ? settings->network_compression_method.value : CompressionMethod::LZ4;
 
     query_id = query_id_;
