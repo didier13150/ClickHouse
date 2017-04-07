@@ -69,7 +69,7 @@ namespace Protocol
             ProfileInfo = 6,    /// Пакет с профайлинговой информацией.
             Totals = 7,            /// Блок данных с тотальными значениями, со сжатием или без.
             Extremes = 8,        /// Блок данных с минимумами и максимумами, аналогично.
-            StatusResponse = 9,
+            TablesStatusResponse = 9,
         };
 
         /** NOTE: Если бы в качестве типа агрумента функции был бы Enum, то сравнение packet >= 0 && packet < 7
@@ -78,7 +78,7 @@ namespace Protocol
           */
         inline const char * toString(UInt64 packet)
         {
-            static const char * data[] = { "Hello", "Data", "Exception", "Progress", "Pong", "EndOfStream", "ProfileInfo", "Totals", "Extremes", "StatusResponse" };
+            static const char * data[] = { "Hello", "Data", "Exception", "Progress", "Pong", "EndOfStream", "ProfileInfo", "Totals", "Extremes", "TablesStatusResponse" };
             return packet < 10
                 ? data[packet]
                 : "Unknown packet";
@@ -98,12 +98,12 @@ namespace Protocol
             Data = 2,             /// Блок данных со сжатием или без.
             Cancel = 3,           /// Отменить выполнение запроса.
             Ping = 4,             /// Проверка живости соединения с сервером.
-            StatusRequest = 5,    /// Check remote server status.
+            TablesStatusRequest = 5,    /// Check status of tables on remote server.
         };
 
         inline const char * toString(UInt64 packet)
         {
-            static const char * data[] = { "Hello", "Query", "Data", "Cancel", "Ping", "Status" };
+            static const char * data[] = { "Hello", "Query", "Data", "Cancel", "Ping", "TablesStatusRequest" };
             return packet < 6
                 ? data[packet]
                 : "Unknown packet";

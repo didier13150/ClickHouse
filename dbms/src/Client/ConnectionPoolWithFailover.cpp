@@ -66,10 +66,10 @@ std::vector<IConnectionPool::Entry> ConnectionPoolWithFailover::getManyChecked(
 
             /// We take only the lag of the main table behind the Distributed table into account.
             /// TODO: calculate lag for joined tables also.
-            Protocol::Status::Request status_request;
+            Protocol::TablesStatusRequest status_request;
             status_request.tables = { table_to_check };
 
-            auto status_response = result.entry->getServerStatus(status_request);
+            auto status_response = result.entry->getTablesStatus(status_request);
             if (status_response.table_states_by_id.size() != status_request.tables.size())
                 throw Exception(
                         "Bad TablesStatus response (from " + result.entry->getDescription() + ")",
@@ -78,7 +78,7 @@ std::vector<IConnectionPool::Entry> ConnectionPoolWithFailover::getManyChecked(
             UInt32 max_lag = 0;
             for (const auto & kv: status_response.table_states_by_id)
             {
-                Protocol::Status::Response::TableStatus status = kv.second;
+                Protocol::TableStatus status = kv.second;
 
                 std::cerr << "REPLICA " << result.entry->getDescription() << " TABLE STATUS: " << kv.first.database << "." << kv.first.table << " " << status.is_replicated << " " << status.absolute_delay << std::endl;
 

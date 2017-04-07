@@ -122,7 +122,7 @@ private:
     /// Process a request that does not require the receiving of data blocks from the client
     void processOrdinaryQuery();
 
-    void processStatusRequest();
+    void processTablesStatusRequest();
 
     void sendHello();
     void sendData(Block & block);    /// Write a block to the network.

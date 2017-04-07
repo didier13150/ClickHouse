@@ -7,7 +7,7 @@
 #include <Common/Stopwatch.h>
 
 #include <Core/Progress.h>
-#include <Core/Status.h>
+#include <Protocol/TablesStatus.h>
 
 #include <IO/CompressedReadBuffer.h>
 #include <IO/CompressedWriteBuffer.h>
@@ -365,17 +365,15 @@ void TCPHandler::processOrdinaryQuery()
 }
 
 
-void TCPHandler::processStatusRequest()
+void TCPHandler::processTablesStatusRequest()
 {
-    Protocol::Status::Request request;
+    Protocol::TablesStatusRequest request;
     request.read(*in, client_revision);
 
-    Protocol::Status::Response response;
+    Protocol::TablesStatusResponse response;
     for (const QualifiedTableName & table_name: request.tables)
     {
-        std::cerr << "TABLE STATUS REQUEST " << table_name.database << "." << table_name.table << std::endl;
-
-        Protocol::Status::Response::TableStatus status;
+        Protocol::TableStatus status;
         StoragePtr table = connection_context.getTable(table_name.database, table_name.table);
         if (auto * replicated_table = dynamic_cast<StorageReplicatedMergeTree *>(table.get()))
         {
@@ -388,7 +386,7 @@ void TCPHandler::processStatusRequest()
         response.table_states_by_id.emplace(table_name, std::move(status));
     }
 
-    writeVarUInt(Protocol::Server::StatusResponse, *out);
+    writeVarUInt(Protocol::Server::TablesStatusResponse, *out);
     response.write(*out, client_revision);
 }
 
@@ -541,10 +539,10 @@ bool TCPHandler::receivePacket()
             throw Exception("Unexpected packet " + String(Protocol::Client::toString(packet_type)) + " received from client",
                 ErrorCodes::UNEXPECTED_PACKET_FROM_CLIENT);
 
-        case Protocol::Client::StatusRequest:
+        case Protocol::Client::TablesStatusRequest:
             if (!state.empty())
                 throw NetException("Unexpected packet StatusRequest received from client", ErrorCodes::UNEXPECTED_PACKET_FROM_CLIENT);
-            processStatusRequest();
+            processTablesStatusRequest();
             out->next();
             return false;
 

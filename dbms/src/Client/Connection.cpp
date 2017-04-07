@@ -271,12 +271,12 @@ bool Connection::ping()
     return true;
 }
 
-Protocol::Status::Response Connection::getServerStatus(const Protocol::Status::Request & request)
+Protocol::TablesStatusResponse Connection::getTablesStatus(const Protocol::TablesStatusRequest & request)
 {
     if (!connected)
         connect();
 
-    writeVarUInt(Protocol::Client::StatusRequest, *out);
+    writeVarUInt(Protocol::Client::TablesStatusRequest, *out);
     request.write(*out, server_revision);
     out->next();
 
@@ -285,10 +285,10 @@ Protocol::Status::Response Connection::getServerStatus(const Protocol::Status::R
 
     if (response_type == Protocol::Server::Exception)
         receiveException()->rethrow();
-    else if (response_type != Protocol::Server::StatusResponse)
-        throwUnexpectedPacket(response_type, "StatusResponse");
+    else if (response_type != Protocol::Server::TablesStatusResponse)
+        throwUnexpectedPacket(response_type, "TablesStatusResponse");
 
-    Protocol::Status::Response response;
+    Protocol::TablesStatusResponse response;
     response.read(*in, server_revision);
     return response;
 }

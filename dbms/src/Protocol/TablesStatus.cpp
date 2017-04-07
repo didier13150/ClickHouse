@@ -1,4 +1,4 @@
-#include <Core/Status.h>
+#include <Protocol/TablesStatus.h>
 #include <IO/ReadBuffer.h>
 #include <IO/WriteBuffer.h>
 #include <IO/ReadHelpers.h>
@@ -9,7 +9,26 @@ namespace DB
 namespace Protocol
 {
 
-void Status::Request::write(WriteBuffer & out, UInt64 server_protocol_revision) const
+void TableStatus::write(WriteBuffer & out, UInt64 client_protocol_revision) const
+{
+    writeBinary(is_replicated, out);
+    if (is_replicated)
+    {
+        writeVarUInt(absolute_delay, out);
+    }
+}
+
+void TableStatus::read(ReadBuffer & in, UInt64 server_protocol_revision)
+{
+    absolute_delay = 0;
+    readBinary(is_replicated, in);
+    if (is_replicated)
+    {
+        readVarUInt(absolute_delay, in);
+    }
+}
+
+void TablesStatusRequest::write(WriteBuffer & out, UInt64 server_protocol_revision) const
 {
     writeVarUInt(tables.size(), out);
     for (const auto & table_name : tables)
@@ -19,7 +38,7 @@ void Status::Request::write(WriteBuffer & out, UInt64 server_protocol_revision) 
     }
 }
 
-void Status::Request::read(ReadBuffer & in, UInt64 client_protocol_revision)
+void TablesStatusRequest::read(ReadBuffer & in, UInt64 client_protocol_revision)
 {
     size_t size = 0;
     readVarUInt(size, in);
@@ -36,26 +55,7 @@ void Status::Request::read(ReadBuffer & in, UInt64 client_protocol_revision)
     }
 }
 
-void Status::Response::TableStatus::write(WriteBuffer & out, UInt64 client_protocol_revision) const
-{
-    writeBinary(is_replicated, out);
-    if (is_replicated)
-    {
-        writeVarUInt(absolute_delay, out);
-    }
-}
-
-void Status::Response::TableStatus::read(ReadBuffer & in, UInt64 server_protocol_revision)
-{
-    absolute_delay = 0;
-    readBinary(is_replicated, in);
-    if (is_replicated)
-    {
-        readVarUInt(absolute_delay, in);
-    }
-}
-
-void Status::Response::write(WriteBuffer & out, UInt64 client_protocol_revision) const
+void TablesStatusResponse::write(WriteBuffer & out, UInt64 client_protocol_revision) const
 {
     writeVarUInt(table_states_by_id.size(), out);
     for (const auto & kv: table_states_by_id)
@@ -69,7 +69,7 @@ void Status::Response::write(WriteBuffer & out, UInt64 client_protocol_revision)
     }
 }
 
-void Status::Response::read(ReadBuffer & in, UInt64 server_protocol_revision)
+void TablesStatusResponse::read(ReadBuffer & in, UInt64 server_protocol_revision)
 {
     size_t size = 0;
     readVarUInt(size, in);
