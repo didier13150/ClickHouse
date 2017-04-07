@@ -80,7 +80,7 @@ std::vector<IConnectionPool::Entry> ConnectionPoolWithFailover::getManyChecked(
             {
                 Protocol::Status::Response::TableStatus status = kv.second;
 
-                std::cerr << "REPLICA " << result.entry->getDescription() << " TABLE STATUS: " << kv.first.database << "." << kv.first.table << " " << status.is_replicated << " " << status.absolute_delay << " " << status.relative_delay << std::endl;
+                std::cerr << "REPLICA " << result.entry->getDescription() << " TABLE STATUS: " << kv.first.database << "." << kv.first.table << " " << status.is_replicated << " " << status.absolute_delay << std::endl;
 
                 if (status.is_replicated)
                     max_lag = std::max(max_lag, status.absolute_delay);

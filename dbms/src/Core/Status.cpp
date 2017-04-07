@@ -42,19 +42,16 @@ void Status::Response::TableStatus::write(WriteBuffer & out, UInt64 client_proto
     if (is_replicated)
     {
         writeVarUInt(absolute_delay, out);
-        writeVarUInt(relative_delay, out);
     }
 }
 
 void Status::Response::TableStatus::read(ReadBuffer & in, UInt64 server_protocol_revision)
 {
     absolute_delay = 0;
-    relative_delay = 0;
     readBinary(is_replicated, in);
     if (is_replicated)
     {
         readVarUInt(absolute_delay, in);
-        readVarUInt(relative_delay, in);
     }
 }
 

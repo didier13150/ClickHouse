@@ -170,6 +170,8 @@ public:
         bool is_readonly;
         bool is_session_expired;
         ReplicatedMergeTreeQueue::Status queue;
+        UInt32 last_queue_update_attempt;
+        UInt32 last_successful_queue_update_attempt;
         UInt32 parts_to_check;
         String zookeeper_path;
         String replica_name;
@@ -187,6 +189,12 @@ public:
     using LogEntriesData = std::vector<ReplicatedMergeTreeLogEntryData>;
     void getQueue(LogEntriesData & res, String & replica_name);
 
+    /// Get replica delay relative to current time.
+    time_t getAbsoluteDelay() const;
+
+    /// If the absolute delay is greater than min_relative_delay_to_yield_leadership,
+    /// will also calculate the difference from the unprocessed time of the best replica.
+    /// NOTE: Will communicate to ZooKeeper to calculate relative delay.
     void getReplicaDelays(time_t & out_absolute_delay, time_t & out_relative_delay);
 
     /// Добавить кусок в очередь кусков, чьи данные нужно проверить в фоновом потоке.
@@ -238,6 +246,8 @@ private:
       * В ZK записи в хронологическом порядке. Здесь - не обязательно.
       */
     ReplicatedMergeTreeQueue queue;
+    std::atomic<time_t> last_queue_update_attempt_time{0};
+    std::atomic<time_t> last_successful_queue_update_attempt_time{0};
 
     /** /replicas/me/is_active.
       */

@@ -380,11 +380,7 @@ void TCPHandler::processStatusRequest()
         if (auto * replicated_table = dynamic_cast<StorageReplicatedMergeTree *>(table.get()))
         {
             status.is_replicated = true;
-            time_t abs_delay;
-            time_t rel_delay;
-            replicated_table->getReplicaDelays(abs_delay, rel_delay);
-            status.absolute_delay = abs_delay;
-            status.relative_delay = rel_delay;
+            status.absolute_delay = replicated_table->getAbsoluteDelay();
         }
         else
             status.is_replicated = false;

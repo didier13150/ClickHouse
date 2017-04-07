@@ -31,7 +31,6 @@ struct Status
         {
             bool is_replicated;
             UInt32 absolute_delay;
-            UInt32 relative_delay;
 
             void write(WriteBuffer & out, UInt64 client_protocol_revision) const;
             void read(ReadBuffer & in, UInt64 server_protocol_revision);
